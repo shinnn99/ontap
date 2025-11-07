@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ôn tập từ CSV</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Ôn tập theo chương</h1>
+      <div class="filters">
+        <label for="chapterSelect">Chọn chương:</label>
+        <select id="chapterSelect">
+          <option value="__ALL__">Tất cả</option>
+        </select>
+        <button id="shuffleBtn" type="button">Xáo trộn câu</button>
+        <button id="resetBtn" type="button">Reset</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="questions" class="questions"></div>
+    </main>
+
+    <footer class="footer">
+      <small>Đọc dữ liệu từ file <code>dap_an.csv</code> cùng thư mục.</small>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+

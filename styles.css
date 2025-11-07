@@ -1,0 +1,132 @@
+:root {
+  --bg: #0f172a;
+  --card: #111827;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #22c55e;
+  --danger: #ef4444;
+  --border: #1f2937;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+select {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+button {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover { border-color: #334155; }
+
+main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.questions {
+  display: grid;
+  gap: 12px;
+}
+
+.question-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.question-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.question-number {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.question-text {
+  font-size: 16px;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+@media (min-width: 640px) {
+  .options { grid-template-columns: 1fr 1fr; }
+}
+
+.option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #0b1220;
+  border: 1px solid var(--border);
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.answer-result {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  color: var(--muted);
+}
+
+.answer-result.correct { color: var(--accent); }
+.answer-result.wrong { color: var(--danger); }
+
+.footer {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+
+code { color: var(--muted); }
