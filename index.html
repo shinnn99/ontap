@@ -3,31 +3,98 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ôn tập từ CSV</title>
+    <title>Ôn tập trắc nghiệm</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar">
-      <h1>Ôn tập theo chương</h1>
+      <h1>📚 Ôn tập trắc nghiệm</h1>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="general">CNXH</button>
+        <button class="tab-btn" data-tab="marketing">Marketing</button>
+        <button class="tab-btn" data-tab="exam">🎯 Tạo đề thi</button>
+      </div>
+    </header>
+
+    <!-- Filters for practice mode -->
+    <div class="filters-bar" id="filtersBar">
       <div class="filters">
         <label for="chapterSelect">Chọn chương:</label>
         <select id="chapterSelect">
           <option value="__ALL__">Tất cả</option>
         </select>
-        <button id="shuffleBtn" type="button">Xáo trộn câu</button>
-        <button id="resetBtn" type="button">Reset</button>
+        <button id="shuffleBtn" type="button">🔀 Xáo trộn</button>
+        <button id="resetBtn" type="button">↺ Reset</button>
       </div>
-    </header>
+    </div>
+
+    <!-- Exam creation panel -->
+    <div class="exam-panel" id="examPanel" style="display: none;">
+      <div class="exam-config" id="examConfig">
+        <h3>🎯 Tạo đề thi</h3>
+        <p class="subtitle">Chọn nguồn câu hỏi và số lượng để bắt đầu làm bài</p>
+        <div class="exam-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="examSource">Nguồn câu hỏi</label>
+              <select id="examSource">
+                <option value="general">📘 CNXH</option>
+                <option value="marketing">📗 Marketing</option>
+                <option value="all">📚 Tất cả</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="questionCount">Số câu hỏi</label>
+              <input type="number" id="questionCount" min="1" max="200" value="20" />
+              <span id="maxQuestions" class="hint"></span>
+            </div>
+          </div>
+          <button id="generateExamBtn" class="primary-btn">Bắt đầu làm bài</button>
+        </div>
+      </div>
+      
+      <div class="exam-info" id="examInfo" style="display: none;">
+        <div class="exam-header">
+          <span id="examProgress">📝 Đã làm: 0/0</span>
+          <button id="submitExamBtn" class="submit-btn">✓ Nộp bài</button>
+          <button id="newExamBtn" class="secondary-btn">Tạo đề mới</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom Dialog -->
+    <div class="dialog-overlay" id="dialogOverlay" style="display: none;">
+      <div class="dialog-box">
+        <div class="dialog-icon" id="dialogIcon">⚠️</div>
+        <h3 id="dialogTitle">Thông báo</h3>
+        <p id="dialogMessage"></p>
+        <div class="dialog-buttons">
+          <button id="dialogOkBtn" class="primary-btn">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result panel -->
+    <div class="result-panel" id="resultPanel" style="display: none;">
+      <div class="result-card">
+        <h2>🎉 Kết quả</h2>
+        <div class="score" id="scoreDisplay"></div>
+        <div class="result-details" id="resultDetails"></div>
+        <div class="btn-group">
+          <button id="reviewExamBtn" class="primary-btn">📋 Xem đáp án</button>
+          <button id="retakeExamBtn" class="secondary-btn">🔄 Làm lại</button>
+        </div>
+      </div>
+    </div>
 
     <main>
       <div id="questions" class="questions"></div>
     </main>
 
     <footer class="footer">
-      <small>Đọc dữ liệu từ file <code>dap_an.csv</code> cùng thư mục.</small>
+      <small>Ôn tập trắc nghiệm theo chương</small>
     </footer>
 
     <script src="app.js"></script>
   </body>
 </html>
-

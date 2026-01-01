@@ -1,14 +1,23 @@
 // Read and render questions from CSV with chapter filter and instant answer reveal
 
-async function loadCSV() {
-  const res = await fetch('./dap_an.csv');
-  if (!res.ok) throw new Error('Không thể đọc file dap_an.csv');
+let currentTab = 'general';
+let allGeneralItems = [];
+let allMarketingItems = [];
+
+// Exam mode variables
+let examMode = false;
+let examQuestions = [];
+let examAnswers = {};
+let examSubmitted = false;
+
+async function loadCSV(filename) {
+  const res = await fetch(`./${filename}`);
+  if (!res.ok) throw new Error(`Không thể đọc file ${filename}`);
   const text = await res.text();
   return text;
 }
 
 function parseCSV(text) {
-  // Remove BOM and normalize newlines
   let s = text.replace(/^\uFEFF/, '').replace(/\r/g, '');
   const rows = [];
   let row = [];
@@ -19,7 +28,7 @@ function parseCSV(text) {
     if (inQuotes) {
       if (ch === '"') {
         const next = s[i + 1];
-        if (next === '"') { // escaped quote
+        if (next === '"') {
           field += '"';
           i++;
         } else {
@@ -44,7 +53,6 @@ function parseCSV(text) {
       }
     }
   }
-  // push last field/row if any
   if (field.length > 0 || row.length > 0) {
     row.push(field);
     rows.push(row);
@@ -69,7 +77,6 @@ function distinctChapters(items) {
 
 function renderChapterOptions(chapters) {
   const select = document.getElementById('chapterSelect');
-  // Clear existing except first
   while (select.options.length > 1) select.remove(1);
   chapters.forEach(ch => {
     const opt = document.createElement('option');
@@ -79,7 +86,7 @@ function renderChapterOptions(chapters) {
   });
 }
 
-function buildQuestionCard(item, idx) {
+function buildQuestionCard(item, idx, isExamMode = false) {
   const card = document.createElement('div');
   card.className = 'question-card';
   card.dataset.index = String(idx);
@@ -88,7 +95,7 @@ function buildQuestionCard(item, idx) {
   header.className = 'question-header';
   const number = document.createElement('div');
   number.className = 'question-number';
-  number.textContent = `Câu ${item['Câu số']}`;
+  number.textContent = isExamMode ? `Câu ${idx + 1}` : `Câu ${item['Câu số']}`;
   const text = document.createElement('div');
   text.className = 'question-text';
   text.textContent = item['Nội dung Câu hỏi'];
@@ -106,7 +113,7 @@ function buildQuestionCard(item, idx) {
     { k: 'Lựa chọn D', label: 'D' },
   ];
 
-  const groupName = `q-${idx}`;
+  const groupName = `q-${idx}-${Date.now()}`;
   options.forEach(opt => {
     const val = item[opt.k];
     if (!val) return;
@@ -133,32 +140,31 @@ function buildQuestionCard(item, idx) {
   answer.style.display = 'none';
   card.appendChild(answer);
 
-  optionsWrap.addEventListener('change', (e) => {
-    const target = e.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    const chosen = target.value.trim();
-    const correct = (item['Đáp án Đúng'] || '').trim();
-    const isCorrect = chosen === correct;
-    answer.style.display = 'block';
-    answer.classList.toggle('correct', isCorrect);
-    answer.classList.toggle('wrong', !isCorrect);
-    const status = isCorrect ? 'Đúng' : 'Sai';
-    answer.textContent = `${status}. Đáp án đúng: ${correct}`;
-  });
+  if (isExamMode) {
+    // Exam mode: track answers, don't show result immediately
+    optionsWrap.addEventListener('change', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      examAnswers[idx] = target.value.trim();
+      updateExamProgress();
+    });
+  } else {
+    // Practice mode: show result immediately
+    optionsWrap.addEventListener('change', (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      const chosen = target.value.trim();
+      const correct = (item['Đáp án Đúng'] || '').trim();
+      const isCorrect = chosen === correct;
+      answer.style.display = 'block';
+      answer.classList.toggle('correct', isCorrect);
+      answer.classList.toggle('wrong', !isCorrect);
+      const status = isCorrect ? 'Đúng' : 'Sai';
+      answer.textContent = `${status}. Đáp án đúng: ${correct}`;
+    });
+  }
 
   return card;
-}
-
-function renderQuestions(items, chapterFilter) {
-  const mount = document.getElementById('questions');
-  mount.innerHTML = '';
-  const filtered = chapterFilter && chapterFilter !== '__ALL__'
-    ? items.filter(x => x['Chương'] === chapterFilter)
-    : items;
-  filtered.forEach((item, idx) => {
-    const card = buildQuestionCard(item, idx);
-    mount.appendChild(card);
-  });
 }
 
 function filterItems(items, chapterFilter) {
@@ -167,11 +173,11 @@ function filterItems(items, chapterFilter) {
     : items.slice();
 }
 
-function renderList(list) {
+function renderList(list, isExamMode = false) {
   const mount = document.getElementById('questions');
   mount.innerHTML = '';
   list.forEach((item, idx) => {
-    const card = buildQuestionCard(item, idx);
+    const card = buildQuestionCard(item, idx, isExamMode);
     mount.appendChild(card);
   });
 }
@@ -185,46 +191,329 @@ function shuffle(arr) {
   return a;
 }
 
+// Custom Dialog
+function showDialog(icon, title, message) {
+  document.getElementById('dialogIcon').textContent = icon;
+  document.getElementById('dialogTitle').textContent = title;
+  document.getElementById('dialogMessage').textContent = message;
+  document.getElementById('dialogOverlay').style.display = 'flex';
+}
+
+function hideDialog() {
+  document.getElementById('dialogOverlay').style.display = 'none';
+}
+
+function getCurrentItems() {
+  return currentTab === 'marketing' ? allMarketingItems : allGeneralItems;
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  examMode = false;
+  examSubmitted = false;
+  
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  
+  const filtersBar = document.getElementById('filtersBar');
+  const examPanel = document.getElementById('examPanel');
+  const examConfig = document.getElementById('examConfig');
+  const examInfo = document.getElementById('examInfo');
+  const resultPanel = document.getElementById('resultPanel');
+  
+  resultPanel.style.display = 'none';
+  
+  if (tab === 'exam') {
+    filtersBar.style.display = 'none';
+    examPanel.style.display = 'block';
+    examConfig.style.display = 'block';
+    examInfo.style.display = 'none';
+    updateMaxQuestions();
+    document.getElementById('questions').innerHTML = '';
+  } else {
+    filtersBar.style.display = 'block';
+    examPanel.style.display = 'none';
+    
+    const items = getCurrentItems();
+    const chapters = distinctChapters(items);
+    renderChapterOptions(chapters);
+    
+    const select = document.getElementById('chapterSelect');
+    select.value = '__ALL__';
+    
+    renderList(filterItems(items, '__ALL__'));
+  }
+}
+
+function updateMaxQuestions() {
+  const source = document.getElementById('examSource').value;
+  let maxQ = 0;
+  if (source === 'general') maxQ = allGeneralItems.length;
+  else if (source === 'marketing') maxQ = allMarketingItems.length;
+  else maxQ = allGeneralItems.length + allMarketingItems.length;
+  
+  document.getElementById('maxQuestions').textContent = `(Tối đa: ${maxQ} câu)`;
+  document.getElementById('questionCount').max = maxQ;
+}
+
+function generateExam() {
+  const source = document.getElementById('examSource').value;
+  let count = parseInt(document.getElementById('questionCount').value) || 20;
+  
+  let pool = [];
+  if (source === 'general') pool = allGeneralItems.slice();
+  else if (source === 'marketing') pool = allMarketingItems.slice();
+  else pool = [...allGeneralItems, ...allMarketingItems];
+  
+  count = Math.min(count, pool.length);
+  
+  // Shuffle and pick
+  examQuestions = shuffle(pool).slice(0, count);
+  examAnswers = {};
+  examSubmitted = false;
+  examMode = true;
+  
+  document.getElementById('examConfig').style.display = 'none';
+  document.getElementById('examInfo').style.display = 'flex';
+  document.getElementById('resultPanel').style.display = 'none';
+  
+  updateExamProgress();
+  renderList(examQuestions, true);
+}
+
+function updateExamProgress() {
+  const answered = Object.keys(examAnswers).length;
+  const total = examQuestions.length;
+  document.getElementById('examProgress').textContent = `Đã làm: ${answered}/${total}`;
+}
+
+function submitExam() {
+  const answered = Object.keys(examAnswers).length;
+  const total = examQuestions.length;
+  
+  if (answered < total) {
+    const remaining = total - answered;
+    showDialog('⚠️', 'Chưa hoàn thành', `Bạn còn ${remaining} câu chưa làm. Vui lòng hoàn thành tất cả câu hỏi trước khi nộp bài.`);
+    return;
+  }
+  
+  examSubmitted = true;
+  calculateAndShowResult();
+}
+
+function calculateAndShowResult() {
+  const total = examQuestions.length;
+  const pointPerQuestion = 10 / total;
+  let correctCount = 0;
+  
+  examQuestions.forEach((q, idx) => {
+    const userAnswer = examAnswers[idx] || '';
+    const correctAnswer = (q['Đáp án Đúng'] || '').trim();
+    if (userAnswer === correctAnswer) {
+      correctCount++;
+    }
+  });
+  
+  const score = (correctCount * pointPerQuestion).toFixed(2);
+  
+  document.getElementById('scoreDisplay').innerHTML = `
+    <div class="score-number">${score}/10</div>
+    <div class="score-detail">Đúng ${correctCount}/${total} câu</div>
+  `;
+  
+  document.getElementById('resultDetails').innerHTML = `
+    <p>Điểm mỗi câu: ${pointPerQuestion.toFixed(4)} điểm</p>
+  `;
+  
+  document.getElementById('resultPanel').style.display = 'flex';
+  document.getElementById('examInfo').style.display = 'none';
+  document.getElementById('questions').innerHTML = '';
+}
+
+function reviewExam() {
+  document.getElementById('resultPanel').style.display = 'none';
+  document.getElementById('examInfo').style.display = 'flex';
+  document.getElementById('examInfo').innerHTML = `
+    <div class="exam-header">
+      <span>Xem lại đáp án</span>
+      <button id="backToResultBtn" class="secondary-btn">Quay lại kết quả</button>
+      <button id="newExamBtn2" class="secondary-btn">Tạo đề mới</button>
+    </div>
+  `;
+  
+  document.getElementById('backToResultBtn').addEventListener('click', () => {
+    document.getElementById('resultPanel').style.display = 'flex';
+    document.getElementById('examInfo').style.display = 'none';
+    document.getElementById('questions').innerHTML = '';
+  });
+  
+  document.getElementById('newExamBtn2').addEventListener('click', resetExam);
+  
+  renderExamReview();
+}
+
+function renderExamReview() {
+  const mount = document.getElementById('questions');
+  mount.innerHTML = '';
+  
+  examQuestions.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'question-card';
+    
+    const userAnswer = examAnswers[idx] || '';
+    const correctAnswer = (item['Đáp án Đúng'] || '').trim();
+    const isCorrect = userAnswer === correctAnswer;
+    
+    card.classList.add(isCorrect ? 'review-correct' : 'review-wrong');
+
+    const header = document.createElement('div');
+    header.className = 'question-header';
+    const number = document.createElement('div');
+    number.className = 'question-number';
+    number.innerHTML = `Câu ${idx + 1} ${isCorrect ? '<span class="badge correct">✓</span>' : '<span class="badge wrong">✗</span>'}`;
+    const text = document.createElement('div');
+    text.className = 'question-text';
+    text.textContent = item['Nội dung Câu hỏi'];
+    header.appendChild(number);
+    header.appendChild(text);
+    card.appendChild(header);
+
+    const optionsWrap = document.createElement('div');
+    optionsWrap.className = 'options';
+
+    const options = [
+      { k: 'Lựa chọn A', label: 'A' },
+      { k: 'Lựa chọn B', label: 'B' },
+      { k: 'Lựa chọn C', label: 'C' },
+      { k: 'Lựa chọn D', label: 'D' },
+    ];
+
+    options.forEach(opt => {
+      const val = item[opt.k];
+      if (!val) return;
+      const optionEl = document.createElement('div');
+      optionEl.className = 'option review-option';
+      
+      const isUserChoice = userAnswer === val;
+      const isCorrectChoice = correctAnswer === val;
+      
+      if (isCorrectChoice) {
+        optionEl.classList.add('correct-answer');
+      }
+      if (isUserChoice && !isCorrectChoice) {
+        optionEl.classList.add('wrong-answer');
+      }
+
+      const span = document.createElement('span');
+      let prefix = '';
+      if (isCorrectChoice) prefix = '✓ ';
+      if (isUserChoice && !isCorrectChoice) prefix = '✗ ';
+      span.innerHTML = `<strong>${opt.label}.</strong> ${prefix}${val}`;
+
+      optionEl.appendChild(span);
+      optionsWrap.appendChild(optionEl);
+    });
+    card.appendChild(optionsWrap);
+    
+    mount.appendChild(card);
+  });
+}
+
+function resetExam() {
+  examQuestions = [];
+  examAnswers = {};
+  examSubmitted = false;
+  examMode = false;
+  
+  document.getElementById('examConfig').style.display = 'block';
+  document.getElementById('examInfo').style.display = 'none';
+  document.getElementById('examInfo').innerHTML = `
+    <div class="exam-header">
+      <span id="examProgress">Câu: 0/0</span>
+      <span id="examTimer"></span>
+      <button id="submitExamBtn" class="submit-btn">Nộp bài</button>
+      <button id="newExamBtn" class="secondary-btn">Tạo đề mới</button>
+    </div>
+  `;
+  document.getElementById('resultPanel').style.display = 'none';
+  document.getElementById('questions').innerHTML = '';
+  
+  // Re-attach event listeners
+  document.getElementById('submitExamBtn').addEventListener('click', submitExam);
+  document.getElementById('newExamBtn').addEventListener('click', resetExam);
+}
+
 async function main() {
   try {
-    const csv = await loadCSV();
-    const allItems = parseCSV(csv).map(x => ({
+    const [generalCsv, marketingCsv] = await Promise.all([
+      loadCSV('dap_an.csv'),
+      loadCSV('marketing.csv')
+    ]);
+    
+    allGeneralItems = parseCSV(generalCsv).map(x => ({
       ...x,
       'Câu số': x['Câu số'] ? Number(x['Câu số']) : x['Câu số'],
     }));
-    const chapters = distinctChapters(allItems);
-    renderChapterOptions(chapters);
+    
+    allMarketingItems = parseCSV(marketingCsv).map(x => ({
+      ...x,
+      'Câu số': x['Câu số'] ? Number(x['Câu số']) : x['Câu số'],
+    }));
 
-    let currentFilter = '__ALL__';
-    let currentList = filterItems(allItems, currentFilter);
-    renderList(currentList);
+    switchTab('general');
 
     const select = document.getElementById('chapterSelect');
     const shuffleBtn = document.getElementById('shuffleBtn');
     const resetBtn = document.getElementById('resetBtn');
 
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchTab(btn.dataset.tab);
+      });
+    });
+
     select.addEventListener('change', () => {
-      currentFilter = select.value;
-      currentList = filterItems(allItems, currentFilter);
+      const items = getCurrentItems();
+      const currentList = filterItems(items, select.value);
       renderList(currentList);
     });
 
     shuffleBtn.addEventListener('click', () => {
-      currentList = shuffle(currentList);
+      const items = getCurrentItems();
+      const currentList = shuffle(filterItems(items, select.value));
       renderList(currentList);
     });
 
     resetBtn.addEventListener('click', () => {
-      currentFilter = '__ALL__';
       select.value = '__ALL__';
-      currentList = filterItems(allItems, currentFilter);
-      renderList(currentList);
+      const items = getCurrentItems();
+      renderList(filterItems(items, '__ALL__'));
     });
+
+    // Exam controls
+    document.getElementById('examSource').addEventListener('change', updateMaxQuestions);
+    document.getElementById('generateExamBtn').addEventListener('click', generateExam);
+    document.getElementById('submitExamBtn').addEventListener('click', submitExam);
+    document.getElementById('newExamBtn').addEventListener('click', resetExam);
+    document.getElementById('reviewExamBtn').addEventListener('click', reviewExam);
+    document.getElementById('retakeExamBtn').addEventListener('click', () => {
+      document.getElementById('resultPanel').style.display = 'none';
+      resetExam();
+    });
+    
+    // Dialog
+    document.getElementById('dialogOkBtn').addEventListener('click', hideDialog);
+    document.getElementById('dialogOverlay').addEventListener('click', (e) => {
+      if (e.target.id === 'dialogOverlay') hideDialog();
+    });
+
   } catch (err) {
     const mount = document.getElementById('questions');
     const error = document.createElement('div');
     error.className = 'question-card';
-    error.textContent = 'Lỗi tải dữ liệu CSV: ' + err.message;
+    error.textContent = 'Lỗi tải dữ liệu: ' + err.message;
     mount.appendChild(error);
   }
 }
