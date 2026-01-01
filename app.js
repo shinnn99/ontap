@@ -18,11 +18,12 @@ async function loadCSV(filename) {
 }
 
 function parseCSV(text) {
-  let s = text.replace(/^\uFEFF/, '').replace(/\r/g, '');
+  let s = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const rows = [];
   let row = [];
   let field = '';
   let inQuotes = false;
+  
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
     if (inQuotes) {
@@ -45,7 +46,9 @@ function parseCSV(text) {
         field = '';
       } else if (ch === '\n') {
         row.push(field);
-        rows.push(row);
+        if (row.some(cell => cell.trim())) {
+          rows.push(row);
+        }
         row = [];
         field = '';
       } else {
@@ -53,21 +56,27 @@ function parseCSV(text) {
       }
     }
   }
+  
   if (field.length > 0 || row.length > 0) {
     row.push(field);
-    rows.push(row);
+    if (row.some(cell => cell.trim())) {
+      rows.push(row);
+    }
   }
 
   if (rows.length === 0) return [];
   const headers = rows[0].map(h => h.trim());
   const dataRows = rows.slice(1);
-  return dataRows.map((r) => {
-    const obj = {};
-    for (let i = 0; i < headers.length; i++) {
-      obj[headers[i]] = (r[i] ?? '').trim();
-    }
-    return obj;
-  });
+  
+  return dataRows
+    .map((r) => {
+      const obj = {};
+      for (let i = 0; i < headers.length; i++) {
+        obj[headers[i]] = (r[i] ?? '').trim();
+      }
+      return obj;
+    })
+    .filter(obj => obj['Nội dung Câu hỏi'] && obj['Nội dung Câu hỏi'].trim());
 }
 
 function distinctChapters(items) {
