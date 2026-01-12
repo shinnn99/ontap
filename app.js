@@ -3,6 +3,7 @@
 let currentTab = 'general';
 let allGeneralItems = [];
 let allMarketingItems = [];
+let allQtsxItems = [];
 
 // Exam mode variables
 let examMode = false;
@@ -213,7 +214,9 @@ function hideDialog() {
 }
 
 function getCurrentItems() {
-  return currentTab === 'marketing' ? allMarketingItems : allGeneralItems;
+  if (currentTab === 'marketing') return allMarketingItems;
+  if (currentTab === 'qtsx') return allQtsxItems;
+  return allGeneralItems;
 }
 
 function switchTab(tab) {
@@ -260,7 +263,8 @@ function updateMaxQuestions() {
   let maxQ = 0;
   if (source === 'general') maxQ = allGeneralItems.length;
   else if (source === 'marketing') maxQ = allMarketingItems.length;
-  else maxQ = allGeneralItems.length + allMarketingItems.length;
+  else if (source === 'qtsx') maxQ = allQtsxItems.length;
+  else maxQ = allGeneralItems.length + allMarketingItems.length + allQtsxItems.length;
   
   document.getElementById('maxQuestions').textContent = `(Tối đa: ${maxQ} câu)`;
   document.getElementById('questionCount').max = maxQ;
@@ -273,7 +277,8 @@ function generateExam() {
   let pool = [];
   if (source === 'general') pool = allGeneralItems.slice();
   else if (source === 'marketing') pool = allMarketingItems.slice();
-  else pool = [...allGeneralItems, ...allMarketingItems];
+  else if (source === 'qtsx') pool = allQtsxItems.slice();
+  else pool = [...allGeneralItems, ...allMarketingItems, ...allQtsxItems];
   
   count = Math.min(count, pool.length);
   
@@ -455,9 +460,10 @@ function resetExam() {
 
 async function main() {
   try {
-    const [generalCsv, marketingCsv] = await Promise.all([
+    const [generalCsv, marketingCsv, qtsxCsv] = await Promise.all([
       loadCSV('dap_an.csv'),
-      loadCSV('marketing.csv')
+      loadCSV('marketing.csv'),
+      loadCSV('qtsx.csv')
     ]);
     
     allGeneralItems = parseCSV(generalCsv).map(x => ({
@@ -466,6 +472,11 @@ async function main() {
     }));
     
     allMarketingItems = parseCSV(marketingCsv).map(x => ({
+      ...x,
+      'Câu số': x['Câu số'] ? Number(x['Câu số']) : x['Câu số'],
+    }));
+    
+    allQtsxItems = parseCSV(qtsxCsv).map(x => ({
       ...x,
       'Câu số': x['Câu số'] ? Number(x['Câu số']) : x['Câu số'],
     }));
