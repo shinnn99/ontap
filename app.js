@@ -4,6 +4,7 @@ let currentTab = 'general';
 let allGeneralItems = [];
 let allMarketingItems = [];
 let allQtsxItems = [];
+let allTcttItems = [];
 
 // Exam mode variables
 let examMode = false;
@@ -216,6 +217,7 @@ function hideDialog() {
 function getCurrentItems() {
   if (currentTab === 'marketing') return allMarketingItems;
   if (currentTab === 'qtsx') return allQtsxItems;
+  if (currentTab === 'tctt') return allTcttItems;
   return allGeneralItems;
 }
 
@@ -264,7 +266,8 @@ function updateMaxQuestions() {
   if (source === 'general') maxQ = allGeneralItems.length;
   else if (source === 'marketing') maxQ = allMarketingItems.length;
   else if (source === 'qtsx') maxQ = allQtsxItems.length;
-  else maxQ = allGeneralItems.length + allMarketingItems.length + allQtsxItems.length;
+  else if (source === 'tctt') maxQ = allTcttItems.length;
+  else maxQ = allGeneralItems.length + allMarketingItems.length + allQtsxItems.length + allTcttItems.length;
   
   document.getElementById('maxQuestions').textContent = `(Tối đa: ${maxQ} câu)`;
   document.getElementById('questionCount').max = maxQ;
@@ -278,7 +281,8 @@ function generateExam() {
   if (source === 'general') pool = allGeneralItems.slice();
   else if (source === 'marketing') pool = allMarketingItems.slice();
   else if (source === 'qtsx') pool = allQtsxItems.slice();
-  else pool = [...allGeneralItems, ...allMarketingItems, ...allQtsxItems];
+  else if (source === 'tctt') pool = allTcttItems.slice();
+  else pool = [...allGeneralItems, ...allMarketingItems, ...allQtsxItems, ...allTcttItems];
   
   count = Math.min(count, pool.length);
   
@@ -460,10 +464,11 @@ function resetExam() {
 
 async function main() {
   try {
-    const [generalCsv, marketingCsv, qtsxCsv] = await Promise.all([
+    const [generalCsv, marketingCsv, qtsxCsv, tcttCsv] = await Promise.all([
       loadCSV('dap_an.csv'),
       loadCSV('marketing.csv'),
-      loadCSV('qtsx.csv')
+      loadCSV('qtsx.csv'),
+      loadCSV('tctt.csv')
     ]);
     
     allGeneralItems = parseCSV(generalCsv).map(x => ({
@@ -477,6 +482,11 @@ async function main() {
     }));
     
     allQtsxItems = parseCSV(qtsxCsv).map(x => ({
+      ...x,
+      'Câu số': x['Câu số'] ? Number(x['Câu số']) : x['Câu số'],
+    }));
+    
+    allTcttItems = parseCSV(tcttCsv).map(x => ({
       ...x,
       'Câu số': x['Câu số'] ? Number(x['Câu số']) : x['Câu số'],
     }));
