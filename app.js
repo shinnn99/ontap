@@ -5,6 +5,8 @@ let allGeneralItems = [];
 let allMarketingItems = [];
 let allQtsxItems = [];
 let allTcttItems = [];
+let allPtvtItems = [];
+let allDlvtItems = [];
 
 // Exam mode variables
 let examMode = false;
@@ -218,6 +220,8 @@ function getCurrentItems() {
   if (currentTab === 'marketing') return allMarketingItems;
   if (currentTab === 'qtsx') return allQtsxItems;
   if (currentTab === 'tctt') return allTcttItems;
+  if (currentTab === 'ptvt') return allPtvtItems;
+  if (currentTab === 'dlvt') return allDlvtItems;
   return allGeneralItems;
 }
 
@@ -267,7 +271,9 @@ function updateMaxQuestions() {
   else if (source === 'marketing') maxQ = allMarketingItems.length;
   else if (source === 'qtsx') maxQ = allQtsxItems.length;
   else if (source === 'tctt') maxQ = allTcttItems.length;
-  else maxQ = allGeneralItems.length + allMarketingItems.length + allQtsxItems.length + allTcttItems.length;
+  else if (source === 'ptvt') maxQ = allPtvtItems.length;
+  else if (source === 'dlvt') maxQ = allDlvtItems.length;
+  else maxQ = allGeneralItems.length + allMarketingItems.length + allQtsxItems.length + allTcttItems.length + allPtvtItems.length + allDlvtItems.length;
   
   document.getElementById('maxQuestions').textContent = `(Tối đa: ${maxQ} câu)`;
   document.getElementById('questionCount').max = maxQ;
@@ -282,7 +288,9 @@ function generateExam() {
   else if (source === 'marketing') pool = allMarketingItems.slice();
   else if (source === 'qtsx') pool = allQtsxItems.slice();
   else if (source === 'tctt') pool = allTcttItems.slice();
-  else pool = [...allGeneralItems, ...allMarketingItems, ...allQtsxItems, ...allTcttItems];
+  else if (source === 'ptvt') pool = allPtvtItems.slice();
+  else if (source === 'dlvt') pool = allDlvtItems.slice();
+  else pool = [...allGeneralItems, ...allMarketingItems, ...allQtsxItems, ...allTcttItems, ...allPtvtItems, ...allDlvtItems];
   
   count = Math.min(count, pool.length);
   
@@ -464,11 +472,13 @@ function resetExam() {
 
 async function main() {
   try {
-    const [generalCsv, marketingCsv, qtsxCsv, tcttCsv] = await Promise.all([
+    const [generalCsv, marketingCsv, qtsxCsv, tcttCsv, ptvtCsv, dlvtCsv] = await Promise.all([
       loadCSV('dap_an.csv'),
       loadCSV('marketing.csv'),
       loadCSV('qtsx.csv'),
-      loadCSV('tctt.csv')
+      loadCSV('tctt.csv'),
+      loadCSV('ptvt.csv'),
+      loadCSV('dlvt.csv')
     ]);
     
     allGeneralItems = parseCSV(generalCsv).map(x => ({
@@ -487,6 +497,16 @@ async function main() {
     }));
     
     allTcttItems = parseCSV(tcttCsv).map(x => ({
+      ...x,
+      'Câu số': x['Câu số'] ? Number(x['Câu số']) : x['Câu số'],
+    }));
+
+    allPtvtItems = parseCSV(ptvtCsv).map(x => ({
+      ...x,
+      'Câu số': x['Câu số'] ? Number(x['Câu số']) : x['Câu số'],
+    }));
+
+    allDlvtItems = parseCSV(dlvtCsv).map(x => ({
       ...x,
       'Câu số': x['Câu số'] ? Number(x['Câu số']) : x['Câu số'],
     }));
